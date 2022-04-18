@@ -1,5 +1,6 @@
 // Copyright 2022 Novozhilov Alexander
 #include <omp.h>
+
 #include <vector>
 #include <string>
 #include <random>
@@ -61,7 +62,28 @@ SparseMatrix SparseMatrix::multiply_seq(const SparseMatrix& matrix) const {
     return SparseMatrix(resultMatrix);
 }
 
-SparseMatrix SparseMatrix::multiply_parallel(const SparseMatrix& matrix) const {
+SparseMatrix SparseMatrix::multiply_TBB(const SparseMatrix& matrix) const {
+    if (n != matrix.m) {
+        throw std::invalid_argument("invalid matrix size");
+    }
+    std::vector<std::vector<std::complex<int>>> resultMatrix = getEmptyMatrix(m, matrix.n);
+    tbb::parallel_for(tbb::blocked_range<int>(0, m),
+        [this, &matrix, &resultMatrix](tbb::blocked_range<int>& r) {
+            std::complex<int> tmp;
+            for (int i = r.begin(); i != r.end(); i++) {
+                for (int j = 0; j < matrix.n; j++) {
+                    tmp = std::complex<int>();
+                    for (int k = 0; k < n; k++) {
+                        tmp += get(i, k) * matrix.get(k, j);
+                    }
+                    resultMatrix[i][j] = tmp;
+                }
+            }
+        });
+    return SparseMatrix(resultMatrix);
+}
+
+SparseMatrix SparseMatrix::multiply_STD(const SparseMatrix& matrix) const {
     if (n != matrix.m) {
         throw std::invalid_argument("invalid matrix size");
     }
