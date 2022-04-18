@@ -2,6 +2,7 @@
 #include <tbb/tbb.h>
 #include <omp.h>
 #include <vector>
+#include <thread>
 #include <string>
 #include <random>
 #include <iostream>
@@ -62,7 +63,7 @@ SparseMatrix SparseMatrix::multiply_seq(const SparseMatrix& matrix) const {
     return SparseMatrix(resultMatrix);
 }
 
-SparseMatrix SparseMatrix::multiply_parallel(const SparseMatrix& matrix) const {
+SparseMatrix SparseMatrix::multiply_TBB(const SparseMatrix& matrix) const {
     if (n != matrix.m) {
         throw std::invalid_argument("invalid matrix size");
     }
@@ -80,6 +81,45 @@ SparseMatrix SparseMatrix::multiply_parallel(const SparseMatrix& matrix) const {
                 }
             }
         });
+    return SparseMatrix(resultMatrix);
+}
+
+SparseMatrix SparseMatrix::multiply_STD(const SparseMatrix& matrix) const {
+    if (n != matrix.m) {
+        throw std::invalid_argument("invalid matrix size");
+    }
+    std::vector<std::thread> threads;
+    std::vector<std::vector<std::complex<int>>> resultMatrix = getEmptyMatrix(m, matrix.n);
+    int nthreads = std::thread::hardware_concurrency();
+    int step = m / nthreads;
+    int remains = m % nthreads;
+    if (step == 0) {
+        return multiply_seq(matrix);
+    }
+    for (int i = 0, currentThread = 0; i < m; i += step, currentThread++) {
+        int from = i;
+        int to = i + step;
+        if (currentThread == nthreads - 1 && remains != 0) {
+            to += remains;
+            i = m;
+        }
+        threads.push_back(std::thread(
+            [from, to, this, &matrix, &resultMatrix]() {
+                std::complex<int> tmp;
+                for (int i = from; i < to; i++) {
+                    for (int j = 0; j < matrix.n; j++) {
+                        tmp = std::complex<int>();
+                        for (int k = 0; k < n; k++) {
+                            tmp += get(i, k) * matrix.get(k, j);
+                        }
+                        resultMatrix[i][j] = tmp;
+                    }
+                }
+            }));
+    }
+    for (int i = 0; i < static_cast<int>(threads.size()); i++) {
+        threads[i].join();
+    }
     return SparseMatrix(resultMatrix);
 }
 

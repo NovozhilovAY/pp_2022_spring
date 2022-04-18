@@ -37,23 +37,32 @@ TEST(Matrix_Multiplication_TBB, result_matrix_has_correct_size) {
 TEST(Matrix_Multiplication_TBB, parallel_multiplication_returns_same_result) {
     SparseMatrix matrix1(3, 6);
     SparseMatrix matrix2(6, 3);
-    SparseMatrix result1 = matrix1.multiply_parallel(matrix2);
+    SparseMatrix result1 = matrix1.multiply_TBB(matrix2);
     SparseMatrix result2 = matrix1.multiply_seq(matrix2);
     ASSERT_TRUE(result1 == result2);
 }
 
-// TEST(Matrix_Multiplication_TBB, parallel_multiplication_works) {
-//  SparseMatrix matrix1(100, 100);
-//  SparseMatrix matrix2(100, 100);
-//  double startSeq = omp_get_wtime();
-//  SparseMatrix result1 = matrix1.multiply_seq(matrix2);
-//  double finishSeq = omp_get_wtime();
-//  double startParallel = omp_get_wtime();
-//  SparseMatrix result2 = matrix1.multiply_parallel(matrix2);
-//  double finishParallel = omp_get_wtime();
-//  std::cout << "Sequential time: " << finishSeq - startSeq<< " s." << std::endl;
-//  std::cout << "Parallel time: " << finishParallel - startParallel << " s." << std::endl;
-// }
+TEST(Matrix_Multiplication_TBB, parallel_multiplication_works) {
+    SparseMatrix matrix1(200, 200);
+    SparseMatrix matrix2(200, 200);
+
+    double startSeq = omp_get_wtime();
+    SparseMatrix result1 = matrix1.multiply_seq(matrix2);
+    double finishSeq = omp_get_wtime();
+
+    double startParallelTBB = omp_get_wtime();
+    SparseMatrix result2 = matrix1.multiply_TBB(matrix2);
+    double finishParallelTBB = omp_get_wtime();
+
+    double startParallelSTD = omp_get_wtime();
+    SparseMatrix result3 = matrix1.multiply_STD(matrix2);
+    double finishParallelSTD = omp_get_wtime();
+
+    std::cout << "Sequential time: " << finishSeq - startSeq << " s." << std::endl;
+    std::cout << "       TBB time: " << finishParallelTBB - startParallelTBB << " s." << std::endl;
+    std::cout << "STD thread time: " << finishParallelSTD - startParallelSTD << " s." << std::endl;
+    ASSERT_TRUE(result1 == result2 && result3 == result1);
+}
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
